@@ -1,0 +1,45 @@
+{
+  "users": [
+    {
+      "id": "9aeccd98-de74-4e00-b3a9-c53d891806b9",
+      "username": "pedrovdp07",
+      "email": "pedrovdp07@gmail.com",
+      "salt": "d6383a7e7eecd4fe54fc291a067a0e97",
+      "hash": "82bce04e8899f4125c4504a481bfbe8661f86998cb9de0f93bc5a81f78c824e8fac83a97f02c7b594ecc4a59013f9feb17b79a73c5ef53818e65958ecd97db39"
+    },
+    {
+      "id": "f66d4d54-4b95-478e-9539-54549e987125",
+      "username": "pedrovdp",
+      "email": "mangonepedro250@gmail.com",
+      "salt": "b1c637a6251411d70b526ac9db3dad1b",
+      "hash": "179e1e360d6249b109f60b020ca9b2e366740b49a8d7064728154481da0d545889f138e56201367fd8b5daac0afa50fc1b77aeae973ffb19079eeb90d0a0d904"
+    }
+  ],
+  "libraries": [
+    {
+      "id": "0e97d43d-19ae-4cc5-9aa8-e8e205198a04",
+      "userId": "9aeccd98-de74-4e00-b3a9-c53d891806b9",
+      "name": "RPG"
+    }
+  ],
+  "games": [
+    {
+      "id": "9e9cb553-a376-4ce8-9db8-8e591724b5ea",
+      "libraryId": "0e97d43d-19ae-4cc5-9aa8-e8e205198a04",
+      "title": "Neon Dodger",
+      "genre": "Arcade",
+      "year": "2026",
+      "cover": "https://placehold.co/400x300/121424/00f5d4?text=Neon+Dodger",
+      "link": "http://localhost:3000/neon-dodger.html"
+    },
+    {
+      "id": "e183a949-740b-423c-b7e1-7d49dad4d597",
+      "libraryId": "0e97d43d-19ae-4cc5-9aa8-e8e205198a04",
+      "title": "Neon Dodger",
+      "genre": "Arcade",
+      "year": "2026",
+      "cover": "https://placehold.co/400x300/121424/00f5d4?text=Neon+Dodger",
+      "link": "http://localhost:3000/neon-dodger.html"
+    }
+  ]
+}
