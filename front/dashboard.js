@@ -1,5 +1,6 @@
 'use strict';
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
+const REVIEWS_STORAGE_KEY = 'gaminghub_reviews_v1';
 
 let currentUser = null;
 let libraries = [];
@@ -7,7 +8,22 @@ let publicGames = [];
 let rankingEntries = [];
 let uploadTargetPublic = false;
 let activeReviewGame = null;
-let activeReviews = [];
+let localReviews = loadLocalReviews();
+
+function loadLocalReviews() {
+  try {
+    const raw = localStorage.getItem(REVIEWS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalReviews() {
+  try {
+    localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(localReviews));
+  } catch {}
+}
 
 async function api(url, method = 'GET', payload, isFormData = false) {
   const options = {
@@ -27,7 +43,9 @@ async function api(url, method = 'GET', payload, isFormData = false) {
     location.replace('/');
     throw Error('La sesión terminó');
   }
-  if (!response.ok) throw Error(data.error || 'No se pudo completar la operación');
+  if (!response.ok) {
+    throw Error(data.error || 'No se pudo completar la operación');
+  }
   return data;
 }
 
@@ -38,20 +56,23 @@ function setMessage(id, message, ok = false) {
 }
 
 function view(name) {
-  document.querySelectorAll('.view').forEach((e) => e.classList.toggle('hidden', e.id !== `view-${name}`));
-  document.querySelectorAll('.side-link[data-view]').forEach((e) => e.classList.toggle('active', e.dataset.view === name));
+  document.querySelectorAll('.view').forEach(e => e.classList.toggle('hidden', e.id !== `view-${name}`));
+  document.querySelectorAll('.side-link[data-view]').forEach(e => e.classList.toggle('active', e.dataset.view === name));
   $('current-view').textContent = {
     overview: 'Resumen',
     libraries: 'Mis bibliotecas',
     ranking: 'Ranking',
     account: 'Mi cuenta'
-  }[name] || 'Resumen';
+  }[name];
   if (name === 'libraries') renderLibraries();
   if (name === 'ranking') renderRanking();
 }
 
 function modal(id, open) {
   $(id).classList.toggle('hidden', !open);
+  if (!open && (id === 'modal-json' || id === 'modal-zip')) {
+    uploadTargetPublic = false;
+  }
   if (open) {
     const input = $(id).querySelector('input,select,textarea');
     input?.focus();
@@ -77,7 +98,7 @@ function paintUser() {
   $('profile-mail').value = currentUser.email;
 }
 
-function normalizeGame(g) {
+function normalizeGame(g, isPublicFallback = false) {
   return {
     id: g.id,
     title: g.title || g.titulo || 'Sin título',
@@ -85,81 +106,9 @@ function normalizeGame(g) {
     year: g.year || g.anio || '',
     cover: g.cover || g.portada || '',
     link: g.link || g.ejecutable || g.playUrl || '',
-    uploadedBy: g.uploadedBy || g.author || g.username || ''
+    uploadedBy: g.uploadedBy || g.author || g.username || '',
+    isPublic: Boolean(g.public ?? g.isPublic ?? isPublicFallback)
   };
-}
-
-function getReviewStorageKey(game) {
-  const keyPart = game.id ? String(game.id) : game.title.toLowerCase().trim();
-  return `gaminghub_reviews_${keyPart}`;
-}
-
-function readLocalReviews(game) {
-  try {
-    const raw = localStorage.getItem(getReviewStorageKey(game));
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalReviews(game, list) {
-  try {
-    localStorage.setItem(getReviewStorageKey(game), JSON.stringify(list));
-  } catch {}
-}
-
-function normalizeReview(r) {
-  const rating = Math.max(1, Math.min(5, Number(r.rating ?? r.stars ?? 5) || 5));
-  return {
-    author: r.author || r.username || r.user || 'Jugador',
-    rating,
-    comment: r.comment || r.text || r.review || '',
-    date: r.date || r.createdAt || ''
-  };
-}
-
-function renderReviewsList() {
-  const list = $('reviews-list');
-  list.replaceChildren();
-  if (!activeReviews.length) {
-    list.append(create('p', 'muted library-empty', 'Todavía no hay reseñas para este juego. ¡Sé el primero en opinar!'));
-    return;
-  }
-  for (const rev of activeReviews) {
-    const item = create('article', 'review-item');
-    const top = create('div', 'review-top');
-    const authorSpan = create('strong', '', rev.author);
-    const starsText = '★'.repeat(rev.rating) + '☆'.repeat(5 - rev.rating);
-    const starsSpan = create('span', 'review-stars', `${starsText} (${rev.rating}/5)`);
-    top.append(authorSpan, starsSpan);
-    item.append(top, create('p', '', rev.comment));
-    list.append(item);
-  }
-}
-
-async function openReviewsModal(game) {
-  activeReviewGame = game;
-  setMessage('review-error', '');
-  $('form-review').reset();
-  $('reviews-modal-title').textContent = `Reseñas · ${game.title}`;
-  $('reviews-game-subtitle').textContent = `${game.genre || 'Sin género'}${game.year ? ' · ' + game.year : ''}`;
-  activeReviews = readLocalReviews(game).map(normalizeReview);
-  renderReviewsList();
-  modal('modal-reviews', true);
-
-  if (game.id) {
-    try {
-      const res = await api(`/api/games/${encodeURIComponent(game.id)}/reviews`);
-      const remote = Array.isArray(res) ? res : (res.reviews || []);
-      if (remote.length) {
-        activeReviews = remote.map(normalizeReview);
-        writeLocalReviews(game, activeReviews);
-        renderReviewsList();
-      }
-    } catch {}
-  }
 }
 
 function normalizeRankingItem(item) {
@@ -186,9 +135,7 @@ async function loadRanking() {
 
   const neonBest = Number(localStorage.getItem('neon_dodger_best') || 0);
   if (neonBest > 0 && currentUser) {
-    const exists = rankingEntries.some(
-      (r) => r.username === currentUser.username && r.game.toLowerCase() === 'neon dodger'
-    );
+    const exists = rankingEntries.some(r => r.username === currentUser.username && r.game.toLowerCase() === 'neon dodger');
     if (!exists) {
       const level = 1 + Math.floor(neonBest / 250);
       const pct = Math.min(100, Math.round((neonBest / 2500) * 100));
@@ -212,9 +159,9 @@ async function loadRanking() {
   filterSelect.append(allOpt);
 
   const knownGames = new Set([
-    ...rankingEntries.map((r) => r.game),
-    ...publicGames.map((g) => g.title),
-    ...libraries.flatMap((l) => (l.games || []).map((g) => g.title || g.titulo))
+    ...rankingEntries.map(r => r.game),
+    ...publicGames.map(g => g.title),
+    ...libraries.flatMap(l => (l.games || []).map(g => g.title || g.titulo))
   ].filter(Boolean));
 
   for (const gameName of [...knownGames].sort((a, b) => a.localeCompare(b))) {
@@ -232,7 +179,7 @@ function renderRanking() {
   const selectedGame = $('ranking-game-filter').value;
   const q = $('ranking-search').value.trim().toLowerCase();
 
-  const filtered = rankingEntries.filter((r) => {
+  const filtered = rankingEntries.filter(r => {
     if (selectedGame && r.game !== selectedGame) return false;
     if (q && !r.username.toLowerCase().includes(q) && !r.game.toLowerCase().includes(q)) return false;
     return true;
@@ -266,14 +213,10 @@ function renderRanking() {
 
     const tdUser = create('td');
     const userBox = create('div', 'rank-player');
-    userBox.append(
-      create('span', 'rank-avatar', (row.username[0] || 'J').toUpperCase()),
-      create('span', '', row.username)
-    );
+    userBox.append(create('span', 'rank-avatar', (row.username[0] || 'J').toUpperCase()), create('span', '', row.username));
     tdUser.append(userBox);
 
     const tdGame = create('td', '', row.game);
-
     const tdPoints = create('td');
     tdPoints.append(create('span', 'rank-points', row.points.toLocaleString('es-AR') + ' pts'));
 
@@ -298,13 +241,13 @@ function renderRanking() {
 async function refresh() {
   const result = await api('/api/libraries');
   libraries = result.libraries || [];
-  publicGames = (result.publicGames || []).map(normalizeGame);
+  publicGames = (result.publicGames || []).map(g => normalizeGame(g, true));
 
-  const seenPublicIds = new Set(publicGames.map((g) => String(g.id)));
+  const seenPublicIds = new Set(publicGames.map(g => String(g.id)));
   for (const lib of libraries) {
     if (lib.isPublic) {
       for (const rawG of (lib.games || [])) {
-        const g = normalizeGame({ ...rawG, uploadedBy: rawG.uploadedBy || lib.ownerName || '' });
+        const g = normalizeGame({ ...rawG, uploadedBy: rawG.uploadedBy || lib.ownerName || '' }, true);
         if (!seenPublicIds.has(String(g.id))) {
           seenPublicIds.add(String(g.id));
           publicGames.push(g);
@@ -313,15 +256,19 @@ async function refresh() {
     }
   }
 
-  const allLocalGames = libraries.flatMap((l) => (l.games || []).map(normalizeGame));
+  // Solo contar juegos privados en "Tu colección" para no mezclar con la biblioteca pública
+  const privateGames = libraries
+    .filter(l => !l.isPublic)
+    .flatMap(l => (l.games || []).map(g => normalizeGame(g, false)));
+
   $('stat-libraries').textContent = libraries.length;
-  $('stat-games').textContent = allLocalGames.length;
-  $('stat-genres').textContent = new Set([...allLocalGames, ...publicGames].map((g) => g.genre).filter(Boolean)).size;
+  $('stat-games').textContent = privateGames.length;
+  $('stat-genres').textContent = new Set([...privateGames, ...publicGames].map(g => g.genre).filter(Boolean)).size;
   $('library-count').textContent = `${libraries.length} biblioteca${libraries.length === 1 ? '' : 's'}`;
 
   const recent = $('recent-games');
   recent.replaceChildren();
-  for (const game of allLocalGames.slice(-4).reverse()) {
+  for (const game of privateGames.slice(-4).reverse()) {
     const row = create('div', 'recent-row');
     row.append(create('div', 'recent-symbol', '🎮'));
     const t = create('div');
@@ -342,11 +289,45 @@ async function refresh() {
       o.value = l.id;
       select.append(o);
     }
-    if (libraries.some((l) => String(l.id) === String(previous))) select.value = previous;
+    if (libraries.some(l => String(l.id) === String(previous))) select.value = previous;
   }
 
   renderLibraries();
   await loadRanking();
+}
+
+function openReviewsModal(game) {
+  activeReviewGame = game;
+  $('reviews-modal-title').textContent = `Reseñas · ${game.title}`;
+  $('reviews-game-subtitle').textContent = `${game.genre || 'Sin género'}${game.year ? ' · ' + game.year : ''}`;
+  setMessage('review-error', '');
+  renderReviewsList();
+  modal('modal-reviews', true);
+}
+
+function renderReviewsList() {
+  const list = $('reviews-list');
+  list.replaceChildren();
+  if (!activeReviewGame) return;
+
+  const key = String(activeReviewGame.id || activeReviewGame.title);
+  const items = localReviews[key] || [];
+  if (!items.length) {
+    list.append(create('p', 'muted', 'Todavía no hay reseñas para este juego. ¡Sé el primero en opinar!'));
+    return;
+  }
+
+  for (const r of items) {
+    const starsCount = Math.max(1, Math.min(5, Number(r.rating) || 5));
+    const item = create('div', 'review-item');
+    const top = create('div', 'review-top');
+    top.append(
+      create('strong', '', r.author || currentUser?.username || 'Jugador'),
+      create('span', 'review-stars', '★'.repeat(starsCount) + '☆'.repeat(5 - starsCount))
+    );
+    item.append(top, create('p', '', r.comment));
+    list.append(item);
+  }
 }
 
 function buildGameCard(game, canDelete) {
@@ -372,18 +353,17 @@ function buildGameCard(game, canDelete) {
   info.append(create('h3', '', game.title), create('p', '', metaParts.join(' · ')));
 
   const foot = create('div', 'game-buttons');
-  const leftActions = create('div', 'library-actions');
   if (game.link) {
     const a = create('a', 'btn btn-primary btn-small', 'Abrir ↗');
     a.href = game.link;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-    leftActions.append(a);
+    foot.append(a);
   }
-  const revBtn = create('button', 'btn btn-outline btn-small', '💬 Reseñas');
+
+  const revBtn = create('button', 'btn btn-secondary btn-small', '💬 Reseñas');
   revBtn.addEventListener('click', () => openReviewsModal(game));
-  leftActions.append(revBtn);
-  foot.append(leftActions);
+  foot.append(revBtn);
 
   if (canDelete && game.id) {
     const rm = create('button', 'btn btn-icon', '×');
@@ -405,14 +385,31 @@ function buildGameCard(game, canDelete) {
   return card;
 }
 
+function getTargetLibraryIdForUpload() {
+  if (uploadTargetPublic) {
+    const pubLib = libraries.find(l => l.isPublic);
+    if (pubLib) return pubLib.id;
+  }
+  return $('import-library').value || libraries[0]?.id || '';
+}
+
 function openPublicUpload(type) {
   uploadTargetPublic = true;
-  modal(type === 'json' ? 'modal-json' : 'modal-zip', true);
+  const pubLib = libraries.find(l => l.isPublic);
+  if (type === 'json') {
+    if (pubLib) $('import-library').value = pubLib.id;
+    setMessage('json-error', '');
+    modal('modal-json', true);
+  } else {
+    if (pubLib) $('zip-library').value = pubLib.id;
+    setMessage('zip-error', '');
+    modal('modal-zip', true);
+  }
 }
 
 function renderPublicSection(q) {
-  const matchedPublic = publicGames.filter((g) =>
-    [g.title, g.genre, g.year, g.uploadedBy].some((x) => String(x || '').toLowerCase().includes(q))
+  const matchedPublic = publicGames.filter(g =>
+    [g.title, g.genre, g.year, g.uploadedBy].some(x => String(x || '').toLowerCase().includes(q))
   );
   if (q && !matchedPublic.length) return null;
 
@@ -420,7 +417,8 @@ function renderPublicSection(q) {
   const header = create('div', 'library-heading');
   const headerText = create('div');
   const titleRow = create('div', 'library-title', '🌐  Biblioteca Pública de la Comunidad');
-  titleRow.append(create('span', 'lib-badge public', 'Todos los usuarios'));
+  const badge = create('span', 'lib-badge public', 'Todos los usuarios');
+  titleRow.append(badge);
   headerText.append(
     titleRow,
     create('small', '', `${matchedPublic.length} juego${matchedPublic.length === 1 ? '' : 's'} compartido${matchedPublic.length === 1 ? '' : 's'}`)
@@ -456,7 +454,9 @@ function renderLibraries() {
   const publicSection = renderPublicSection(q);
   if (publicSection) list.append(publicSection);
 
-  if (!libraries.length) {
+  const privateLibs = libraries.filter(l => !l.isPublic);
+
+  if (!privateLibs.length) {
     const empty = create('div', 'empty-panel');
     empty.append(
       create('div', 'empty-emoji', '🎮'),
@@ -471,9 +471,9 @@ function renderLibraries() {
   }
 
   let visibleLibs = 0;
-  for (const lib of libraries) {
-    const games = (lib.games || []).map(normalizeGame);
-    const matched = games.filter((g) => [g.title, g.genre, g.year].some((x) => String(x || '').toLowerCase().includes(q)));
+  for (const lib of privateLibs) {
+    const games = (lib.games || []).map(g => normalizeGame(g, false));
+    const matched = games.filter(g => [g.title, g.genre, g.year].some(x => String(x || '').toLowerCase().includes(q)));
     if (q && !lib.name.toLowerCase().includes(q) && !matched.length) continue;
     visibleLibs++;
 
@@ -481,7 +481,8 @@ function renderLibraries() {
     const header = create('div', 'library-heading');
     const headerText = create('div');
     const titleRow = create('div', 'library-title', '▤  ' + lib.name);
-    titleRow.append(create('span', `lib-badge ${lib.isPublic ? 'public' : 'private'}`, lib.isPublic ? '🌐 Pública' : '🔒 Privada'));
+    const badge = create('span', 'lib-badge private', '🔒 Privada');
+    titleRow.append(badge);
     headerText.append(titleRow, create('small', '', `${games.length} juego${games.length === 1 ? '' : 's'} en esta biblioteca`));
     header.append(headerText);
 
@@ -489,14 +490,16 @@ function renderLibraries() {
     const addJson = create('button', 'btn btn-outline btn-small', '⇧ JSON');
     addJson.addEventListener('click', () => {
       uploadTargetPublic = false;
-      modal('modal-json', true);
       $('import-library').value = lib.id;
+      setMessage('json-error', '');
+      modal('modal-json', true);
     });
     const addZip = create('button', 'btn btn-outline btn-small', '📦 .ZIP');
     addZip.addEventListener('click', () => {
       uploadTargetPublic = false;
-      modal('modal-zip', true);
       $('zip-library').value = lib.id;
+      setMessage('zip-error', '');
+      modal('modal-zip', true);
     });
     const del = create('button', 'btn btn-danger btn-small', 'Eliminar');
     del.addEventListener('click', async () => {
@@ -539,21 +542,28 @@ async function init() {
   }
 }
 
-document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => view(b.dataset.view)));
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => view(b.dataset.view)));
 $('account-shortcut').addEventListener('click', () => view('account'));
 $('home-link').addEventListener('click', () => location.assign('/'));
 $('overview-open').addEventListener('click', () => view('libraries'));
 $('quick-profile').addEventListener('click', () => view('account'));
-for (const id of ['open-library', 'quick-library']) $(id).addEventListener('click', () => modal('modal-library', true));
-for (const id of ['open-import', 'quick-import']) $(id).addEventListener('click', () => {
-  uploadTargetPublic = false;
-  if (!libraries.length) {
-    view('libraries');
-    modal('modal-library', true);
-    return;
-  }
-  modal('modal-json', true);
-});
+
+for (const id of ['open-library', 'quick-library']) {
+  $(id).addEventListener('click', () => modal('modal-library', true));
+}
+
+for (const id of ['open-import', 'quick-import']) {
+  $(id).addEventListener('click', () => {
+    uploadTargetPublic = false;
+    if (!libraries.length) {
+      view('libraries');
+      modal('modal-library', true);
+      return;
+    }
+    modal('modal-json', true);
+  });
+}
+
 $('open-zip').addEventListener('click', () => {
   uploadTargetPublic = false;
   if (!libraries.length) {
@@ -564,15 +574,17 @@ $('open-zip').addEventListener('click', () => {
   modal('modal-zip', true);
 });
 
-document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => modal(b.dataset.close, false)));
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => modal(b.dataset.close, false)));
 for (const id of ['modal-library', 'modal-json', 'modal-zip', 'modal-reviews']) {
-  $(id).addEventListener('click', (e) => {
+  $(id).addEventListener('click', e => {
     if (e.target === $(id)) modal(id, false);
   });
 }
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    for (const id of ['modal-library', 'modal-json', 'modal-zip', 'modal-reviews']) modal(id, false);
+    for (const id of ['modal-library', 'modal-json', 'modal-zip', 'modal-reviews']) {
+      modal(id, false);
+    }
   }
 });
 
@@ -586,35 +598,7 @@ $('logout').addEventListener('click', async () => {
   location.assign('/');
 });
 
-$('form-review').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  setMessage('review-error', '');
-  if (!activeReviewGame) return;
-  const comment = $('review-comment').value.trim();
-  const rating = Number($('review-rating').value) || 5;
-  if (!comment) return setMessage('review-error', 'Escribí un comentario antes de publicar.');
-
-  const newReview = {
-    author: currentUser?.username || 'Jugador',
-    rating,
-    comment,
-    date: new Date().toISOString()
-  };
-
-  if (activeReviewGame.id) {
-    try {
-      await api(`/api/games/${encodeURIComponent(activeReviewGame.id)}/reviews`, 'POST', { rating, comment });
-    } catch {}
-  }
-
-  activeReviews = [newReview, ...activeReviews];
-  writeLocalReviews(activeReviewGame, activeReviews);
-  renderReviewsList();
-  $('review-comment').value = '';
-  setMessage('review-error', 'Reseña publicada.', true);
-});
-
-$('form-library').addEventListener('submit', async (e) => {
+$('form-library').addEventListener('submit', async e => {
   e.preventDefault();
   setMessage('library-error', '');
   try {
@@ -628,18 +612,20 @@ $('form-library').addEventListener('submit', async (e) => {
   }
 });
 
-$('form-json').addEventListener('submit', async (e) => {
+$('form-json').addEventListener('submit', async e => {
   e.preventDefault();
   setMessage('json-error', '');
+  const isPublicUpload = uploadTargetPublic;
   try {
     const parsed = JSON.parse($('json-input').value);
-    const games = (Array.isArray(parsed) ? parsed : [parsed]).map((g) => ({
+    const games = (Array.isArray(parsed) ? parsed : [parsed]).map(g => ({
       ...g,
-      public: uploadTargetPublic || Boolean(g.public)
+      public: isPublicUpload || Boolean(g.public)
     }));
+    const targetLibraryId = getTargetLibraryIdForUpload();
     await api('/api/games', 'POST', {
-      libraryId: $('import-library').value,
-      public: uploadTargetPublic,
+      libraryId: targetLibraryId,
+      public: isPublicUpload,
       games
     });
     uploadTargetPublic = false;
@@ -652,19 +638,22 @@ $('form-json').addEventListener('submit', async (e) => {
   }
 });
 
-$('form-zip').addEventListener('submit', async (e) => {
+$('form-zip').addEventListener('submit', async e => {
   e.preventDefault();
   setMessage('zip-error', '');
   const file = $('zip-file').files?.[0];
   if (!file) return setMessage('zip-error', 'Seleccioná un archivo .zip.');
   if (!file.name.toLowerCase().endsWith('.zip')) return setMessage('zip-error', 'El archivo debe tener extensión .zip.');
 
+  const isPublicUpload = uploadTargetPublic;
+  const targetLibraryId = getTargetLibraryIdForUpload();
+
   const fd = new FormData();
-  fd.append('libraryId', $('zip-library').value);
+  fd.append('libraryId', targetLibraryId);
   fd.append('title', $('zip-title').value.trim());
   fd.append('genre', $('zip-genre').value.trim());
   fd.append('year', $('zip-year').value.trim());
-  fd.append('public', String(uploadTargetPublic));
+  fd.append('public', String(isPublicUpload));
   fd.append('zipFile', file);
 
   try {
@@ -679,7 +668,28 @@ $('form-zip').addEventListener('submit', async (e) => {
   }
 });
 
-$('profile-form').addEventListener('submit', async (e) => {
+$('form-review').addEventListener('submit', e => {
+  e.preventDefault();
+  setMessage('review-error', '');
+  if (!activeReviewGame) return;
+  const comment = $('review-comment').value.trim();
+  if (!comment) return setMessage('review-error', 'Escribí un comentario antes de publicar.');
+
+  const key = String(activeReviewGame.id || activeReviewGame.title);
+  if (!localReviews[key]) localReviews[key] = [];
+  localReviews[key].unshift({
+    author: currentUser?.username || 'Jugador',
+    rating: Number($('review-rating').value) || 5,
+    comment,
+    createdAt: new Date().toISOString()
+  });
+  saveLocalReviews();
+  $('review-comment').value = '';
+  renderReviewsList();
+  setMessage('review-error', 'Reseña publicada.', true);
+});
+
+$('profile-form').addEventListener('submit', async e => {
   e.preventDefault();
   setMessage('profile-message', '');
   try {
@@ -695,7 +705,7 @@ $('profile-form').addEventListener('submit', async (e) => {
   }
 });
 
-$('password-form').addEventListener('submit', async (e) => {
+$('password-form').addEventListener('submit', async e => {
   e.preventDefault();
   setMessage('password-message', '');
   try {
