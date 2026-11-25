@@ -365,14 +365,17 @@ function buildGameCard(game, canDelete) {
   revBtn.addEventListener('click', () => openReviewsModal(game));
   foot.append(revBtn);
 
-  if (canDelete && game.id) {
+  if (canDelete) {
     const rm = create('button', 'btn btn-icon', '×');
     rm.setAttribute('aria-label', 'Quitar ' + game.title);
     rm.title = 'Quitar juego';
     rm.addEventListener('click', async () => {
       if (!confirm('¿Quitar este juego?')) return;
       try {
-        await api('/api/games/' + encodeURIComponent(game.id), 'DELETE');
+        if (game.id) {
+          await api('/api/games/' + encodeURIComponent(game.id), 'DELETE');
+        }
+        publicGames = publicGames.filter(item => item !== game && (!game.id || String(item.id) !== String(game.id)));
         await refresh();
       } catch (e) {
         alert(e.message);
@@ -437,7 +440,7 @@ function renderPublicSection(q) {
 
   const grid = create('div', 'game-grid');
   for (const game of matchedPublic) {
-    grid.append(buildGameCard(game, false));
+    grid.append(buildGameCard(game, true));
   }
   if (!grid.children.length) {
     section.append(create('p', 'muted library-empty', 'Todavía no hay juegos en la biblioteca pública.'));
