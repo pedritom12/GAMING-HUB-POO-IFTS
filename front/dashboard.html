@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GamingHub · Mi panel</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body class="app-layout">
+  <aside class="sidebar">
+    <a class="logo sidebar-logo" href="/"><span class="logo-symbol">◈</span> GAMING<span>HUB</span></a>
+    <div class="side-label">MI ESPACIO</div>
+    <nav class="side-nav">
+      <button class="side-link active" data-view="overview">▦ <span>Resumen</span></button>
+      <button class="side-link" data-view="libraries">▤ <span>Mis bibliotecas</span></button>
+      <button class="side-link" data-view="ranking">🏆 <span>Ranking</span></button>
+      <button class="side-link" data-view="account">♙ <span>Mi cuenta</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="side-tip">
+        <span>✦</span>
+        <b>Tu universo gamer</b>
+        <p>Todo organizado, a tu manera.</p>
+      </div>
+      <button class="side-link logout-btn" id="logout">↪ <span>Cerrar sesión</span></button>
+    </div>
+  </aside>
+
+  <div class="app-main">
+    <header class="app-header">
+      <div class="breadcrumbs">MI ESPACIO <span>/</span> <strong id="current-view">Resumen</strong></div>
+      <div class="header-right">
+        <button class="btn btn-ghost" id="home-link">⌂ &nbsp; Inicio</button>
+        <button class="account-chip" id="account-shortcut">
+          <span class="avatar" id="header-avatar">G</span>
+          <span id="header-name">Usuario</span>
+          <span>⌄</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-content">
+      <section id="view-overview" class="view">
+        <div class="welcome-banner">
+          <div>
+            <div class="eyebrow">BIENVENIDO A TU GAMING HUB</div>
+            <h1>¡Hola, <span id="welcome-name">Gamer</span>! 👋</h1>
+            <p>Tu próxima aventura está a un clic. Acá tenés todo tu espacio.</p>
+            <button class="btn btn-white" id="overview-open">Explorar mis bibliotecas →</button>
+          </div>
+          <div class="banner-game">🎮</div>
+        </div>
+
+        <div class="section-row"><h2>Tu actividad</h2><span class="muted">Tu colección en números</span></div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-icon purple">▤</div><small>BIBLIOTECAS</small><strong id="stat-libraries">0</strong><span>Espacios creados</span></div>
+          <div class="stat-card"><div class="stat-icon blue">🎮</div><small>JUEGOS</small><strong id="stat-games">0</strong><span>En tu colección</span></div>
+          <div class="stat-card"><div class="stat-icon pink">✦</div><small>GÉNEROS</small><strong id="stat-genres">0</strong><span>Para explorar</span></div>
+        </div>
+
+        <div class="section-row"><h2>Accesos rápidos</h2></div>
+        <div class="quick-grid">
+          <button class="quick-action" id="quick-library"><span>＋</span><b>Nueva biblioteca</b><small>Organizá tu colección</small></button>
+          <button class="quick-action" id="quick-import"><span>⇧</span><b>Importar juegos</b><small>Agregá juegos con JSON</small></button>
+          <button class="quick-action" id="quick-profile"><span>♙</span><b>Mi perfil</b><small>Administrá tu cuenta</small></button>
+        </div>
+
+        <div class="section-row"><h2>Agregados recientemente</h2></div>
+        <div id="recent-games" class="recent-list"></div>
+      </section>
+
+      <section id="view-libraries" class="view hidden">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">TU COLECCIÓN PERSONAL</div>
+            <h1>Mis bibliotecas</h1>
+            <p>Creá, organizá y explorá todos tus juegos.</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-outline" id="open-import">⇧ Importar JSON</button>
+            <button class="btn btn-outline" id="open-zip">📦 Subir .ZIP</button>
+            <button class="btn btn-primary" id="open-library">＋ Nueva biblioteca</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <label class="search-field"><span>⌕</span><input id="search-input" type="search" placeholder="Buscar por juego, género o año..."></label>
+          <span id="library-count" class="count-pill">0 bibliotecas</span>
+        </div>
+        <div id="library-list" class="library-list"></div>
+      </section>
+
+      <section id="view-ranking" class="view hidden">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">TABLA DE POSICIONES</div>
+            <h1>Ranking de jugadores</h1>
+            <p>Puntajes y progreso alcanzado por cada jugador en cada juego.</p>
+          </div>
+          <div class="head-actions">
+            <select id="ranking-game-filter" class="ranking-select" aria-label="Filtrar por juego">
+              <option value="">Todos los juegos</option>
+            </select>
+          </div>
+        </div>
+        <div class="toolbar">
+          <label class="search-field"><span>⌕</span><input id="ranking-search" type="search" placeholder="Buscar por jugador o juego..."></label>
+          <span id="ranking-count" class="count-pill">0 registros</span>
+        </div>
+        <div id="ranking-container" class="library-section"></div>
+      </section>
+
+      <section id="view-account" class="view hidden">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">CONFIGURACIÓN DE CUENTA</div>
+            <h1>Mi perfil</h1>
+            <p>Actualizá tu información y protegé tu cuenta.</p>
+          </div>
+        </div>
+        <div class="profile-hero">
+          <div class="profile-avatar" id="profile-avatar">G</div>
+          <div>
+            <h2 id="profile-title">Usuario</h2>
+            <p id="profile-email">correo@ejemplo.com</p>
+            <span class="account-badge">● Cuenta activa</span>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <form class="settings-card" id="profile-form">
+            <div class="settings-heading"><span class="settings-icon">♙</span><div><h3>Información personal</h3><p>Datos visibles en tu panel.</p></div></div>
+            <label class="field">Nombre de usuario<input id="profile-username" required minlength="3" maxlength="30" autocomplete="username"></label>
+            <label class="field">Correo electrónico<input id="profile-mail" required type="email" maxlength="120" autocomplete="email"></label>
+            <p class="form-error" id="profile-message" role="status"></p>
+            <button class="btn btn-primary" type="submit">Guardar cambios</button>
+          </form>
+
+          <form class="settings-card" id="password-form">
+            <div class="settings-heading"><span class="settings-icon">♢</span><div><h3>Seguridad</h3><p>Cambiá tu contraseña de acceso.</p></div></div>
+            <label class="field">Contraseña actual<input id="old-password" type="password" required autocomplete="current-password"></label>
+            <label class="field">Nueva contraseña<input id="new-password" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
+            <p class="form-error" id="password-message" role="status"></p>
+            <button class="btn btn-outline" type="submit">Actualizar contraseña</button>
+            <p class="security-note">Al cambiarla, se cerrarán todas las sesiones activas.</p>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="overlay hidden" id="modal-library" role="dialog" aria-modal="true" aria-labelledby="library-modal-title">
+    <div class="dialog">
+      <button class="modal-close" data-close="modal-library" aria-label="Cerrar">×</button>
+      <div class="dialog-icon">▤</div>
+      <h2 id="library-modal-title">Nueva biblioteca</h2>
+      <p>Un espacio para organizar tus juegos favoritos.</p>
+      <form id="form-library">
+        <label class="field">Nombre de la biblioteca<input id="library-name" maxlength="50" required placeholder="Ej. RPG, Aventuras, Favoritos..."></label>
+        <p class="form-error" id="library-error" role="alert"></p>
+        <button class="btn btn-primary full-width">Crear biblioteca →</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="modal-json" role="dialog" aria-modal="true" aria-labelledby="json-modal-title">
+    <div class="dialog">
+      <button class="modal-close" data-close="modal-json" aria-label="Cerrar">×</button>
+      <div class="dialog-icon">⇧</div>
+      <h2 id="json-modal-title">Importar juegos</h2>
+      <p>Pegá un juego o una lista en formato JSON.</p>
+      <form id="form-json">
+        <label class="field">Biblioteca de destino<select id="import-library" required></select></label>
+        <label class="field">Contenido JSON<textarea id="json-input" rows="8" required spellcheck="false" placeholder='[{"titulo":"Juego de prueba","genero":"Aventura","anio":"2026"}]'></textarea></label>
+        <p class="form-error" id="json-error" role="alert"></p>
+        <button class="btn btn-primary full-width">Importar juegos →</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="modal-zip" role="dialog" aria-modal="true" aria-labelledby="zip-modal-title">
+    <div class="dialog">
+      <button class="modal-close" data-close="modal-zip" aria-label="Cerrar">×</button>
+      <div class="dialog-icon">📦</div>
+      <h2 id="zip-modal-title">Subir juego en .ZIP</h2>
+      <p>Subí un paquete <code>.zip</code> con los archivos del juego.</p>
+      <form id="form-zip">
+        <label class="field">Biblioteca de destino<select id="zip-library" required></select></label>
+        <label class="field">Título del juego<input id="zip-title" maxlength="80" required placeholder="Ej. Neon Dodger"></label>
+        <label class="field">Género<input id="zip-genre" maxlength="40" placeholder="Ej. Arcade"></label>
+        <label class="field">Año<input id="zip-year" type="number" min="1970" max="2100" placeholder="2026"></label>
+        <label class="field">Archivo .ZIP<input id="zip-file" type="file" accept=".zip,application/zip,application/x-zip-compressed" required></label>
+        <p class="form-error" id="zip-error" role="alert"></p>
+        <button class="btn btn-primary full-width" type="submit">Subir paquete .ZIP →</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="modal-reviews" role="dialog" aria-modal="true" aria-labelledby="reviews-modal-title">
+    <div class="dialog reviews-dialog">
+      <button class="modal-close" data-close="modal-reviews" aria-label="Cerrar">×</button>
+      <div class="dialog-icon">💬</div>
+      <h2 id="reviews-modal-title">Reseñas del juego</h2>
+      <p id="reviews-game-subtitle" class="reviews-subtitle">Opiniones y puntajes de la comunidad.</p>
+      <div id="reviews-list" class="reviews-list"></div>
+      <form id="form-review" class="review-form">
+        <label class="field">Tu calificación
+          <select id="review-rating" required>
+            <option value="5">★★★★★ (5 / 5)</option>
+            <option value="4">★★★★☆ (4 / 5)</option>
+            <option value="3">★★★☆☆ (3 / 5)</option>
+            <option value="2">★★☆☆☆ (2 / 5)</option>
+            <option value="1">★☆☆☆☆ (1 / 5)</option>
+          </select>
+        </label>
+        <label class="field">Tu reseña
+          <textarea id="review-comment" rows="3" maxlength="400" required placeholder="Contá qué te pareció el juego..."></textarea>
+        </label>
+        <p class="form-error" id="review-error" role="alert"></p>
+        <button class="btn btn-primary full-width" type="submit">Publicar reseña →</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="dashboard.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+'use strict';
+const $=id=>document.getElementById(id);
+let mode='login';
+function showAuth(type='login'){mode=type;$('auth-overlay').classList.remove('hidden');$('tab-login').classList.toggle('selected',type==='login');$('tab-register').classList.toggle('selected',type==='register');$('email-field').classList.toggle('hidden',type!=='register');$('auth-title').textContent=type==='login'?'Bienvenido de nuevo':'Creá tu cuenta';$('auth-subtitle').textContent=type==='login'?'Entrá para continuar tu aventura.':'Un universo de juegos te está esperando.';$('auth-submit').textContent=type==='login'?'Entrar a GamingHub →':'Crear mi cuenta →';$('auth-username').placeholder=type==='login'?'Tu usuario o email':'Elegí un nombre de usuario';$('auth-password').autocomplete=type==='login'?'current-password':'new-password';$('auth-error').textContent='';$('auth-username').focus();}
+function hideAuth(){$('auth-overlay').classList.add('hidden');}
+async function enterLibrary(){try{const r=await fetch('/api/me',{credentials:'same-origin'});if(r.ok){location.href='/dashboard.html';return;}}catch{}showAuth('login');}
+for(const id of ['login-nav','hero-login'])$(id).addEventListener('click',()=>showAuth('login'));
+for(const id of ['register-nav','cta-register'])$(id).addEventListener('click',()=>showAuth('register'));
+for(const id of ['hero-library','preview-library'])$(id).addEventListener('click',enterLibrary);
+$('auth-close').addEventListener('click',hideAuth);$('auth-overlay').addEventListener('click',e=>{if(e.target===$('auth-overlay'))hideAuth();});document.addEventListener('keydown',e=>{if(e.key==='Escape')hideAuth();});
+$('tab-login').addEventListener('click',()=>showAuth('login'));$('tab-register').addEventListener('click',()=>showAuth('register'));
+$('auth-form').addEventListener('submit',async e=>{e.preventDefault();const b=$('auth-submit');b.disabled=true;$('auth-error').textContent='';try{const data={username:$('auth-username').value.trim(),password:$('auth-password').value};if(mode==='register')data.email=$('auth-email').value.trim();const r=await fetch(mode==='register'?'/api/register':'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(data)});const result=await r.json();if(!r.ok)throw new Error(result.error||'No se pudo iniciar sesión');location.assign('/dashboard.html');}catch(err){ $('auth-error').textContent=err.message;}finally{b.disabled=false;}});
